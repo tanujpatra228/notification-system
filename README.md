@@ -109,5 +109,19 @@ Enqueue a notification for delivery based on user preferences.
 
 ---
 
-## License
-MIT 
+# Docker Compose Usage
+
+## Development
+
+1. Start the development environment:
+   ```sh
+   docker compose --profile dev up --build
+   ```
+
+   This will start both the app (in watch mode with live reload) and a Redis server on port 6380.
+
+2. The app will connect to Redis at `redis-dev:6380` using the environment variables set in `docker-compose.yml`.
+
+> **Note:**
+> - Only the development environment is supported via Docker Compose in this setup.
+> - For production, use your own deployment pipeline or extend the Docker setup as needed. 
