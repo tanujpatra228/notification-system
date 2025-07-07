@@ -6,41 +6,67 @@ import { pushQueue } from '../queues/pushQueue.js';
 import { Notification, User } from '../models/index.js';
 import axios from 'axios';
 import { connection } from '../queues/redisConnection.js';
+import { smsQueue } from '../queues/smsQueue.js';
 
-const USER_PREF_WEBHOOK = 'http://localhost:4000/user-preferences'; // Placeholder
+interface NotificationJob {
+    notification: Notification;
+    channels?: string[];
+    userPrefWebhook?: string;
+    errorWebhook?: string;
+    successWebhook?: string;
+}
 
-export const mainConsumer = new Worker<Notification>(
+export const mainConsumer = new Worker<NotificationJob>(
     mainQueue.name,
-    async (job: Job<Notification>) => {
-        const notification = job.data;
-        // Fetch user preferences from webhook
-        let user: User;
-        try {
-            // const response = await axios.get(`${USER_PREF_WEBHOOK}?userId=${notification.userId}`);
-            // user = response.data;
-            user = {
-                id: notification.userId,
-                name: 'Test User',
-                email: 'test@example.com',
-                preferences: {
-                    channels: ['email'],
-                    doNotDisturb: false
+    async (job: Job<NotificationJob>) => {
+        const { notification, channels, userPrefWebhook, errorWebhook, successWebhook } = job.data;
+        let resolvedChannels: string[] | undefined = channels;
+        let error: string | null = null;
+
+        // 1. Prioritize channels if provided
+        if (!resolvedChannels || resolvedChannels.length === 0) {
+            // 2. Otherwise, try to fetch from userPrefWebhook
+            if (userPrefWebhook) {
+                try {
+                    const response = await axios.get(userPrefWebhook, { params: { userId: notification.userId } });
+                    const user: User = response.data;
+                    resolvedChannels = user.preferences.channels;
+                } catch (err) {
+                    error = 'Failed to fetch user preferences: ' + (err instanceof Error ? err.message : String(err));
                 }
-            };
-        } catch (err) {
-            console.error('Failed to fetch user preferences:', err);
-            throw err;
+            } else {
+                error = 'No channels or userPrefWebhook provided';
+            }
         }
-        // Decide channel(s) based on preferences
-        for (const channel of user.preferences.channels) {
+
+        // 3. Error handling
+        if (error || !resolvedChannels || resolvedChannels.length === 0) {
+            if (errorWebhook) {
+                await axios.post(errorWebhook, { error, notification });
+            } else if (successWebhook) {
+                await axios.post(successWebhook, { notification });
+            } else {
+                console.error(error || 'No channels resolved');
+            }
+            return;
+        }
+
+        // 4. Dispatch notifications
+        for (const channel of resolvedChannels) {
             if (channel === 'email') {
                 await emailQueue.add('email', notification);
             } else if (channel === 'sms') {
-                // TODO: Implement SMS queue/consumer. Using whatsappQueue as placeholder.
-                await whatsappQueue.add('sms', notification);
+                await smsQueue.add('sms', notification);
             } else if (channel === 'push') {
                 await pushQueue.add('push', notification);
+            } else if (channel === 'whatsapp') {
+                await whatsappQueue.add('whatsapp', notification);
             }
+        }
+
+        // 5. Success callback
+        if (successWebhook) {
+            await axios.post(successWebhook, { notification, channels: resolvedChannels });
         }
     },
     { connection }

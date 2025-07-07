@@ -10,4 +10,12 @@ export interface Notification {
 
 export type NotificationPriority = 'low' | 'normal' | 'high';
 
-import { NotificationChannel } from './User.js'; 
+import { NotificationChannel } from './User.js';
+
+export interface NotificationJob {
+    notification: Notification;
+    channels?: NotificationChannel[];
+    userPrefWebhook?: string;
+    errorWebhook?: string;
+    successWebhook?: string;
+} 

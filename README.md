@@ -53,9 +53,9 @@ A simple, scalable notification microservice built with Node.js, TypeScript, Exp
 ## API Usage
 
 ### POST `/api/notify`
-Enqueue a notification for delivery based on user preferences.
+Enqueue a notification for delivery based on user preferences or explicit channels.
 
-**Request Body Example:**
+**Request Body Example (with explicit channels):**
 ```json
 {
   "notification": {
@@ -64,7 +64,40 @@ Enqueue a notification for delivery based on user preferences.
     "message": "Your order has shipped!",
     "priority": "normal",
     "timestamp": "2024-06-01T12:00:00Z"
-  }
+  },
+  "channels": ["sms", "email"],
+  "successWebhook": "http://localhost:8080/webhook/success",
+  "errorWebhook": "http://localhost:8080/webhook/error"
+}
+```
+
+**Request Body Example (with userPrefWebhook):**
+```json
+{
+  "notification": {
+    "id": "notif-456",
+    "userId": "user-789",
+    "message": "Your package is out for delivery!",
+    "priority": "high",
+    "timestamp": "2024-06-01T13:00:00Z"
+  },
+  "userPrefWebhook": "http://localhost:4000/user-preferences",
+  "successWebhook": "http://localhost:8080/webhook/success",
+  "errorWebhook": "http://localhost:8080/webhook/error"
+}
+```
+
+**Request Body Example (error case):**
+```json
+{
+  "notification": {
+    "id": "notif-789",
+    "userId": "user-123",
+    "message": "This should trigger an error.",
+    "priority": "normal",
+    "timestamp": "2024-06-01T14:00:00Z"
+  },
+  "errorWebhook": "http://localhost:8080/webhook/error"
 }
 ```
 
@@ -106,6 +139,20 @@ Enqueue a notification for delivery based on user preferences.
   npm run build
   npm start
   ```
+
+---
+
+## Twilio SMS Integration
+
+To enable SMS notifications using Twilio, set the following environment variables in your environment or a .env file:
+
+```
+TWILIO_ACCOUNT_SID=your_account_sid
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_PHONE_NUMBER=your_twilio_phone_number
+```
+
+The system will use these credentials to send SMS notifications via Twilio.
 
 ---
 
