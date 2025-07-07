@@ -10,17 +10,12 @@ export const smsConsumer = new Worker<Notification>(
     smsQueue.name,
     async (job: Job<Notification>) => {
         const notification = job.data;
-        // Mock user for demonstration; in real use, fetch user from DB or service
-        const user: User = {
-            id: notification.userId,
-            name: 'Test User',
-            email: 'test@example.com',
-            phone: '+919265353025',
-            preferences: {
-                channels: ['sms'],
-                doNotDisturb: false
-            }
-        };
+        // Expect user data to be present in notification.user
+        const user: User | undefined = (notification as any).user;
+        if (!user) {
+            console.error('No user data provided in notification');
+            return;
+        }
         await twilioProvider.sendNotification(notification, user);
     },
     { connection }
