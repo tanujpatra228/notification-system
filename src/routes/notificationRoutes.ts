@@ -9,7 +9,7 @@ router.post('/notify', async (req: Request, res: Response) => {
     const job: NotificationJob = req.body;
     try {
         await mainQueue.add('notification', job);
-        res.json({ success: true });
+        res.status(202).json({ success: true });
     } catch (err) {
         res.status(500).json({ error: (err as Error).message });
     }
