@@ -21,7 +21,7 @@ export const mainConsumer = new Worker<NotificationJob>(
     async (job: Job<NotificationJob>) => {
         const { notification, channels, userPrefWebhook, errorWebhook, successWebhook } = job.data;
         let user: User | undefined = (notification as any).user;
-        let resolvedChannels: string[] | undefined = channels;
+        let resolvedChannels: string[] | undefined = user?.preferences?.channels || channels;
         let error: string | null = null;
 
         // 1. Prioritize channels if provided
@@ -63,15 +63,29 @@ export const mainConsumer = new Worker<NotificationJob>(
         }
 
         // 4. Dispatch notifications
+        const queuedChannels: string[] = [];
         for (const channel of resolvedChannels) {
-            if (channel === 'email') {
-                await emailQueue.add('email', notification);
-            } else if (channel === 'sms') {
-                await smsQueue.add('sms', notification);
-            } else if (channel === 'push') {
-                await pushQueue.add('push', notification);
-            } else if (channel === 'whatsapp') {
-                await whatsappQueue.add('whatsapp', notification);
+            switch (channel) {
+                case 'email':
+                    await emailQueue.add('email', notification);
+                    queuedChannels.push('email');
+                    break;
+                case 'sms':
+                    await smsQueue.add('sms', notification);
+                    queuedChannels.push('sms');
+                    break;
+                case 'push':
+                    await pushQueue.add('push', notification);
+                    queuedChannels.push('push');
+                    break;
+                case 'whatsapp':
+                    await whatsappQueue.add('whatsapp', notification);
+                    queuedChannels.push('whatsapp');
+                    break;
+                // Optionally, handle unknown channels here
+                default:
+                    // You may want to log or handle unsupported channels
+                    break;
             }
         }
 
