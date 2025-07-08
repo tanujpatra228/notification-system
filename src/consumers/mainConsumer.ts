@@ -20,6 +20,7 @@ export const mainConsumer = new Worker<NotificationJob>(
     mainQueue.name,
     async (job: Job<NotificationJob>) => {
         const { notification, channels, userPrefWebhook, errorWebhook, successWebhook } = job.data;
+        let user: User | undefined = (notification as any).user;
         let resolvedChannels: string[] | undefined = channels;
         let error: string | null = null;
 
@@ -29,14 +30,24 @@ export const mainConsumer = new Worker<NotificationJob>(
             if (userPrefWebhook) {
                 try {
                     const response = await axios.get(userPrefWebhook, { params: { userId: notification.userId } });
-                    const user: User = response.data;
-                    resolvedChannels = user.preferences.channels;
+                    user = response.data;
+                    resolvedChannels = user?.preferences?.channels;
                 } catch (err) {
                     error = 'Failed to fetch user preferences: ' + (err instanceof Error ? err.message : String(err));
                 }
             } else {
                 error = 'No channels or userPrefWebhook provided';
             }
+        }
+
+        // 2. Check doNotDisturb before dispatching
+        if (user && user.preferences && user.preferences.doNotDisturb) {
+            const errorMsg = `User ${user.id} has Do Not Disturb enabled. Skipping notification.`;
+            console.log(errorMsg);
+            if (errorWebhook) {
+                await axios.post(errorWebhook, { error: errorMsg, notification });
+            }
+            return;
         }
 
         // 3. Error handling
